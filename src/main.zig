@@ -45,8 +45,12 @@ pub fn main() !void {
     var current_time: u64 = 0;
     var last_time: u64 = 0;
     var accumulator: u64 = 0;
+    var game_speed_modifier: f32 = 1;
 
-    var compute_thread_handle: ?std.Thread = null;
+    var compute_thread_handle: std.Thread = undefined;
+    compute_thread_handle = std.Thread.spawn(.{}, compute_neighbors, .{&board}) catch {
+        return;
+    };
     while (!quit) {
         var event: c.SDL_Event = undefined;
         while (c.SDL_PollEvent(&event)) {
@@ -59,6 +63,8 @@ pub fn main() !void {
                     switch (key_code) {
                         c.SDLK_ESCAPE => quit = true,
                         c.SDLK_SPACE => paused = !paused,
+                        c.SDLK_EQUALS => game_speed_modifier = @min(game_speed_modifier * 1.3, 10),
+                        c.SDLK_MINUS => game_speed_modifier = @max(game_speed_modifier * 0.7, 0.5),
                         else => {},
                     }
                 },
@@ -81,7 +87,7 @@ pub fn main() !void {
 
         current_time = c.SDL_GetTicks();
         if (!paused) {
-            accumulator += current_time - last_time;
+            accumulator += @as(u64, @intFromFloat(@as(f32, @floatFromInt(current_time - last_time)) * game_speed_modifier));
         } else {
             // Copy from board to render_board
             render_count = 0;
@@ -99,15 +105,14 @@ pub fn main() !void {
                     render_count += 1;
                 }
             }
-            compute_thread_handle = std.Thread.spawn(.{}, compute_neighbors, .{&board}) catch null;
+            compute_thread_handle = std.Thread.spawn(.{}, compute_neighbors, .{&board}) catch {
+                return;
+            };
         }
         if (accumulator >= TICK_TIME) {
             defer accumulator -= TICK_TIME;
 
-            if (compute_thread_handle != null) {
-                compute_thread_handle.?.join();
-            }
-            defer compute_thread_handle = std.Thread.spawn(.{}, compute_neighbors, .{&board}) catch null;
+            compute_thread_handle.join();
 
             // Tick is happenning
             for (&board) |*field| {
@@ -135,6 +140,10 @@ pub fn main() !void {
                     render_count += 1;
                 }
             }
+
+            compute_thread_handle = std.Thread.spawn(.{}, compute_neighbors, .{&board}) catch {
+                return;
+            };
         }
         last_time = current_time;
 
@@ -145,8 +154,8 @@ pub fn main() !void {
         handle_sdl_error(c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
         handle_sdl_error(c.SDL_RenderFillRects(renderer, &render_board, @intCast(render_count)));
 
-        handle_sdl_error(c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
         for (0..BOARD_SIZE * BOARD_SIZE) |i| {
+            handle_sdl_error(c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
             const x = i / BOARD_SIZE;
             const y = @mod(i, BOARD_SIZE);
 
@@ -161,6 +170,7 @@ pub fn main() !void {
             }));
             var buf: [12]u8 = undefined;
             const text = try std.fmt.bufPrintZ(&buf, "{d}", .{board[i].neighbors});
+            handle_sdl_error(c.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255));
             handle_sdl_error(c.SDL_RenderDebugText(renderer, x_pos + BLOCK_SIZE / 2, y_pos + BLOCK_SIZE / 2, text.ptr));
         }
 

@@ -174,6 +174,11 @@ pub fn main() !void {
             handle_sdl_error(c.SDL_RenderDebugText(renderer, x_pos + BLOCK_SIZE / 2, y_pos + BLOCK_SIZE / 2, text.ptr));
         }
 
+        handle_sdl_error(c.SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255));
+        handle_sdl_error(c.SDL_RenderDebugText(renderer, 10, 10, if (paused) "Paused" else "Running"));
+        var buf: [32]u8 = undefined;
+        const text = try std.fmt.bufPrintZ(&buf, "Speed: {d:>.2}", .{game_speed_modifier});
+        handle_sdl_error(c.SDL_RenderDebugText(renderer, 10, 20, text));
         handle_sdl_error(c.SDL_RenderPresent(renderer));
         c.SDL_Delay(17);
     }

@@ -1,10 +1,11 @@
 .{
-    .name = "cellular_automata",
+    .name = .cellular_automata,
     .version = "0.0.0",
-    .dependencies = .{
-    },
-
+    .fingerprint = 0x979ab056c61ecbce, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.15.2",
     .paths = .{
-        "invalid",
+        "build.zig",
+        "build.zig.zon",
+        "src",
     },
 }
